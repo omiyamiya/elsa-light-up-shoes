@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elsa Snowflake Light Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --panel: rgba(9, 16, 24, 0.82);
+      --panel-border: rgba(173, 226, 255, 0.22);
+      --text: #eef8ff;
+      --muted: #9bb4c4;
+      --accent: #65d7ff;
+      --accent-2: #f8fdff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #060a0e;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      min-height: 100vh;
+    }
+
+    #stage {
+      width: 100%;
+      height: 100vh;
+      display: block;
+      background:
+        radial-gradient(circle at 48% 44%, rgba(97, 188, 255, 0.2), rgba(2, 6, 10, 0) 38%),
+        linear-gradient(145deg, #08121a, #030608 58%, #071019);
+    }
+
+    .controls {
+      position: relative;
+      z-index: 2;
+      height: 100vh;
+      overflow: auto;
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(7, 13, 19, 0.94), rgba(4, 8, 12, 0.96));
+      border-left: 1px solid rgba(136, 203, 255, 0.16);
+      box-shadow: -18px 0 44px rgba(0, 0, 0, 0.38);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.15;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .badge {
+      display: inline-grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(101, 215, 255, 0.36);
+      border-radius: 8px;
+      background: rgba(101, 215, 255, 0.1);
+      color: #d9f7ff;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .panel {
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .panel h2 {
+      margin: 0 0 12px;
+      font-size: 12px;
+      line-height: 1;
+      font-weight: 760;
+      color: #d9f7ff;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    label:first-of-type {
+      margin-top: 0;
+    }
+
+    .value-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .value-row span:last-child {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    button {
+      min-height: 38px;
+      border: 1px solid rgba(101, 215, 255, 0.28);
+      border-radius: 8px;
+      background: rgba(101, 215, 255, 0.1);
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button.active {
+      background: rgba(101, 215, 255, 0.25);
+      border-color: rgba(213, 247, 255, 0.58);
+      box-shadow: 0 0 22px rgba(101, 215, 255, 0.16) inset;
+    }
+
+    .readout {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 8px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .readout strong {
+      color: var(--accent-2);
+      font-weight: 680;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hint {
+      margin: 12px 0 0;
+      color: #88a7ba;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 860px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+      }
+
+      #stage {
+        height: calc(100vh - 268px);
+        min-height: 360px;
+      }
+
+      .controls {
+        height: 268px;
+        border-left: 0;
+        border-top: 1px solid rgba(136, 203, 255, 0.16);
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        padding: 12px;
+      }
+
+      .brand {
+        grid-column: 1 / -1;
+        margin-bottom: 0;
+      }
+
+      .panel {
+        margin-bottom: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage" aria-label="雪の結晶投影機構の3Dプレビュー"></canvas>
+  <aside class="controls">
+    <div class="brand">
+      <h1>Snowflake Light<br>Mechanism</h1>
+      <div class="badge" aria-hidden="true">*</div>
+    </div>
+
+    <section class="panel">
+      <h2>Emitter</h2>
+      <label>
+        <span class="value-row"><span>LED intensity</span><span data-value="intensity">1.25</span></span>
+        <input id="intensity" type="range" min="0.3" max="2.2" step="0.01" value="1.25">
+      </label>
+      <label>
+        <span class="value-row"><span>Cut width</span><span data-value="slit">0.24</span></span>
+        <input id="slit" type="range" min="0.14" max="0.62" step="0.01" value="0.24">
+      </label>
+      <label>
+        <span class="value-row"><span>Tube height</span><span data-value="height">1.24</span></span>
+        <input id="height" type="range" min="0.82" max="1.75" step="0.01" value="1.24">
+      </label>
+      <label>
+        <span class="value-row"><span>Tube diameter</span><span data-value="diameter">1.44</span></span>
+        <input id="diameter" type="range" min="0.9" max="2.1" step="0.01" value="1.44">
+      </label>
+    </section>
+
+    <section class="panel">
+      <h2>Projection</h2>
+      <label>
+        <span class="value-row"><span>Snowflake size</span><span data-value="flake">2.35</span></span>
+        <input id="flake" type="range" min="1.1" max="3.6" step="0.01" value="2.35">
+      </label>
+      <label>
+        <span class="value-row"><span>Light height</span><span data-value="floor">0.62</span></span>
+        <input id="floor" type="range" min="0.2" max="1.3" step="0.01" value="0.62">
+      </label>
+      <div class="segmented" aria-label="表示モード">
+        <button id="modeReal" class="active" type="button">Realistic</button>
+        <button id="modeDiagram" type="button">Diagram</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Readout</h2>
+      <div class="readout">
+        <span>Aperture angle</span><strong data-readout="angle">25.9 deg</strong>
+        <span>Projection scale</span><strong data-readout="scale">2.35 x</strong>
+        <span>Source height</span><strong data-readout="opacity">0.62</strong>
+      </div>
+    </section>
+  </aside>
+
+  <script>
+    const canvas = document.getElementById("stage");
+    const gl = canvas.getContext("webgl", { antialias: true, alpha: false });
+
+    if (!gl) {
+      document.body.innerHTML = "<p style='padding:24px;color:white'>WebGL is not available in this browser.</p>";
+      throw new Error("WebGL unavailable");
+    }
+
+    const state = {
+      intensity: 1.25,
+      slit: 0.24,
+      height: 1.24,
+      diameter: 1.44,
+      flake: 2.35,
+      floor: 0.62,
+      diagram: false,
+      yaw: -0.36,
+      pitch: 0.5,
+      distance: 5.8,
+      dragging: false,
+      lastX: 0,
+      lastY: 0
+    };
+
+    const vertexSource = `
+      attribute vec3 position;
+      attribute vec3 normal;
+      attribute vec2 uv;
+      uniform mat4 model;
+      uniform mat4 viewProj;
+      varying vec3 vWorld;
+      varying vec3 vNormal;
+      varying vec2 vUv;
+      void main() {
+        vec4 world = model * vec4(position, 1.0);
+        vWorld = world.xyz;
+        vNormal = mat3(model) * normal;
+        vUv = uv;
+        gl_Position = viewProj * world;
+      }
+    `;
+
+    const fragmentSource = `
+      precision highp float;
+      varying vec3 vWorld;
+      varying vec3 vNormal;
+      varying vec2 vUv;
+      uniform vec4 color;
+      uniform vec3 lightPos;
+      uniform vec3 cameraPos;
+      uniform float emissive;
+      uniform float opacity;
+      uniform int materialKind;
+      uniform float slitWidth;
+      uniform float flakeScale;
+      uniform float tubeHeight;
+      uniform float tubeRadius;
+      uniform float intensity;
+      uniform float diagram;
+
+      float lineSegment(vec2 p, vec2 a, vec2 b, float width) {
+        vec2 pa = p - a;
+        vec2 ba = b - a;
+        float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+        return 1.0 - smoothstep(width, width + 0.014, length(pa - ba * h));
+      }
+
+      float apertureShape(float localAngle, float localY) {
+        float x = localAngle / max(slitWidth, 0.02);
+        float y = clamp(localY / max(tubeHeight, 0.05), 0.0, 1.0);
+        vec2 p = vec2(x, y);
+        float shape = 0.0;
+
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.06), vec2(0.0, 0.92), 0.055));
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.1), vec2(-0.64, 0.28), 0.044));
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.1), vec2(0.64, 0.28), 0.044));
+
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.36), vec2(-0.72, 0.58), 0.042));
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.36), vec2(0.72, 0.58), 0.042));
+        shape = max(shape, lineSegment(p, vec2(-0.34, 0.47), vec2(-0.5, 0.68), 0.032));
+        shape = max(shape, lineSegment(p, vec2(0.34, 0.47), vec2(0.5, 0.68), 0.032));
+
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.58), vec2(-0.48, 0.76), 0.034));
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.58), vec2(0.48, 0.76), 0.034));
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.76), vec2(-0.28, 0.9), 0.028));
+        shape = max(shape, lineSegment(p, vec2(0.0, 0.76), vec2(0.28, 0.9), 0.028));
+
+        shape *= smoothstep(0.02, 0.07, y) * (1.0 - smoothstep(0.95, 1.0, y));
+        return clamp(shape, 0.0, 1.0);
+      }
+
+      float apertureMask(float angle, float y) {
+        float sector = 6.2831853 / 6.0;
+        float offset = 1.5707963;
+        float nearest = floor((angle - offset + sector * 0.5) / sector) * sector + offset;
+        float localAngle = angle - nearest;
+        return apertureShape(localAngle, y);
+      }
+
+      float projectedAperture(vec3 floorPoint) {
+        vec3 ray = floorPoint - lightPos;
+        float radial = length(ray.xz);
+        if (radial < tubeRadius + 0.02) {
+          return 0.0;
+        }
+        float t = tubeRadius / radial;
+        vec3 hit = lightPos + ray * t;
+        float angle = atan(hit.z, hit.x);
+        float opening = apertureMask(angle, hit.y);
+        float distanceFade = exp(-dot(floorPoint.xz, floorPoint.xz) / max(flakeScale * flakeScale * 0.56, 0.2));
+        float edgeFocus = smoothstep(0.02, 0.18, radial - tubeRadius);
+        return opening * distanceFade * edgeFocus;
+      }
+
+      void main() {
+        vec3 base = color.rgb;
+        vec3 n = normalize(vNormal);
+        vec3 l = normalize(lightPos - vWorld);
+        vec3 v = normalize(cameraPos - vWorld);
+        float lambert = max(dot(n, l), 0.0);
+        float rim = pow(1.0 - max(dot(n, v), 0.0), 2.4);
+        vec3 finalColor = base * (0.22 + lambert * 0.58) + rim * vec3(0.25, 0.65, 0.9);
+        float alpha = opacity;
+
+        if (materialKind == 1) {
+          float wallGlow = apertureMask(atan(vWorld.z, vWorld.x), vWorld.y);
+          finalColor = mix(finalColor, vec3(0.76, 0.78, 0.72), 0.62);
+          finalColor += vec3(0.55, 0.84, 1.0) * wallGlow * intensity * 0.42;
+          alpha = opacity;
+        }
+
+        if (materialKind == 2) {
+          float apertureLight = projectedAperture(vWorld);
+          float halo = exp(-dot(vWorld.xz, vWorld.xz) / max(flakeScale * flakeScale * 0.72, 0.2));
+          float caustic = 0.5 + 0.5 * cos(18.0 * atan(vWorld.z, vWorld.x));
+          vec3 floorColor = mix(vec3(0.16, 0.18, 0.19), vec3(0.21, 0.23, 0.24), step(0.03, mod(vWorld.x + 8.0, 1.25)) * 0.12);
+          floorColor *= 0.72 + 0.18 * step(0.03, mod(vWorld.z + 8.0, 1.25));
+          vec3 glow = vec3(0.72, 0.92, 1.0) * (apertureLight * 2.8 + halo * caustic * 0.06) * intensity;
+          finalColor = floorColor + glow;
+          alpha = 1.0;
+        }
+
+        if (materialKind == 3) {
+          float rayFalloff = smoothstep(0.0, 0.5, vUv.y) * (1.0 - smoothstep(0.75, 1.0, vUv.y));
+          float stripe = 0.62 + 0.38 * cos((vUv.x - 0.5) * 13.0);
+          finalColor = base * (emissive + rayFalloff * stripe * intensity);
+          alpha = opacity * rayFalloff * stripe;
+        }
+
+        if (materialKind == 4) {
+          finalColor = base * (emissive + 0.85);
+          alpha = opacity;
+        }
+
+        finalColor = mix(finalColor, vec3(0.85, 0.96, 1.0), diagram * float(materialKind == 3) * 0.25);
+        gl_FragColor = vec4(finalColor, alpha);
+      }
+    `;
+
+    function compile(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader));
+      }
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(program));
+    }
+    gl.useProgram(program);
+
+    const loc = {
+      position: gl.getAttribLocation(program, "position"),
+      normal: gl.getAttribLocation(program, "normal"),
+      uv: gl.getAttribLocation(program, "uv"),
+      model: gl.getUniformLocation(program, "model"),
+      viewProj: gl.getUniformLocation(program, "viewProj"),
+      color: gl.getUniformLocation(program, "color"),
+      lightPos: gl.getUniformLocation(program, "lightPos"),
+      cameraPos: gl.getUniformLocation(program, "cameraPos"),
+      emissive: gl.getUniformLocation(program, "emissive"),
+      opacity: gl.getUniformLocation(program, "opacity"),
+      materialKind: gl.getUniformLocation(program, "materialKind"),
+      slitWidth: gl.getUniformLocation(program, "slitWidth"),
+      flakeScale: gl.getUniformLocation(program, "flakeScale"),
+      tubeHeight: gl.getUniformLocation(program, "tubeHeight"),
+      tubeRadius: gl.getUniformLocation(program, "tubeRadius"),
+      intensity: gl.getUniformLocation(program, "intensity"),
+      diagram: gl.getUniformLocation(program, "diagram")
+    };
+
+    const Mat4 = {
+      identity() {
+        return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+      },
+      multiply(a, b) {
+        const out = new Array(16);
+        for (let i = 0; i < 4; i++) {
+          for (let j = 0; j < 4; j++) {
+            out[i * 4 + j] =
+              a[i * 4 + 0] * b[0 * 4 + j] +
+              a[i * 4 + 1] * b[1 * 4 + j] +
+              a[i * 4 + 2] * b[2 * 4 + j] +
+              a[i * 4 + 3] * b[3 * 4 + j];
+          }
+        }
+        return out;
+      },
+      translate(x, y, z) {
+        return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1];
+      },
+      scale(x, y, z) {
+        return [x, 0, 0, 0, 0, y, 0, 0, 0, 0, z, 0, 0, 0, 0, 1];
+      },
+      rotateX(a) {
+        const c = Math.cos(a);
+        const s = Math.sin(a);
+        return [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1];
+      },
+      rotateY(a) {
+        const c = Math.cos(a);
+        const s = Math.sin(a);
+        return [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1];
+      },
+      rotateZ(a) {
+        const c = Math.cos(a);
+        const s = Math.sin(a);
+        return [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+      },
+      perspective(fovy, aspect, near, far) {
+        const f = 1 / Math.tan(fovy / 2);
+        const nf = 1 / (near - far);
+        return [f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (far + near) * nf, -1, 0, 0, 2 * far * near * nf, 0];
+      },
+      lookAt(eye, target, up) {
+        const z = normalize(sub(eye, target));
+        const x = normalize(cross(up, z));
+        const y = cross(z, x);
+        return [
+          x[0], y[0], z[0], 0,
+          x[1], y[1], z[1], 0,
+          x[2], y[2], z[2], 0,
+          -dot(x, eye), -dot(y, eye), -dot(z, eye), 1
+        ];
+      }
+    };
+
+    function add(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+    function sub(a, b) { return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]; }
+    function mul(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+    function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+    function cross(a, b) {
+      return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    }
+    function normalize(v) {
+      const len = Math.hypot(v[0], v[1], v[2]) || 1;
+      return [v[0] / len, v[1] / len, v[2] / len];
+    }
+
+    function createMesh(vertices, indices) {
+      const vao = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vao);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+      const ibo = gl.createBuffer();
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+      return { vao, ibo, count: indices.length };
+    }
+
+    function bindMesh(mesh) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vao);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
+      const stride = 8 * 4;
+      gl.enableVertexAttribArray(loc.position);
+      gl.vertexAttribPointer(loc.position, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(loc.normal);
+      gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, stride, 3 * 4);
+      gl.enableVertexAttribArray(loc.uv);
+      gl.vertexAttribPointer(loc.uv, 2, gl.FLOAT, false, stride, 6 * 4);
+    }
+
+    function planeMesh(size = 1) {
+      const s = size / 2;
+      return createMesh([
+        -s, 0, -s, 0, 1, 0, 0, 0,
+        s, 0, -s, 0, 1, 0, 1, 0,
+        s, 0, s, 0, 1, 0, 1, 1,
+        -s, 0, s, 0, 1, 0, 0, 1
+      ], [0, 1, 2, 0, 2, 3]);
+    }
+
+    function cylinderMesh(radius = 1, height = 1, segments = 72, openSlit = false) {
+      const vertices = [];
+      const indices = [];
+      const slitCenter = Math.PI / 2;
+      const slitHalf = openSlit ? 0.16 : 0;
+      const rings = [];
+      for (let i = 0; i <= segments; i++) {
+        const a = (i / segments) * Math.PI * 2;
+        if (openSlit && Math.abs(angleDelta(a, slitCenter)) < slitHalf) {
+          rings.push(null);
+          continue;
+        }
+        const x = Math.cos(a) * radius;
+        const z = Math.sin(a) * radius;
+        const base = vertices.length / 8;
+        vertices.push(
+          x, -height / 2, z, Math.cos(a), 0, Math.sin(a), i / segments, 0,
+          x, height / 2, z, Math.cos(a), 0, Math.sin(a), i / segments, 1
+        );
+        rings.push(base);
+      }
+      for (let i = 0; i < segments; i++) {
+        const a = rings[i];
+        const b = rings[i + 1];
+        if (a === null || b === null) continue;
+        indices.push(a, b, b + 1, a, b + 1, a + 1);
+      }
+      return createMesh(vertices, indices);
+    }
+
+    function cutoutAmount(angle, y, height, width) {
+      const sector = Math.PI * 2 / 6;
+      const offset = Math.PI / 2;
+      const nearest = Math.round((angle - offset) / sector) * sector + offset;
+      const localAngle = angleDelta(angle, nearest);
+      const x = localAngle / Math.max(width, 0.02);
+      const yn = Math.max(0, Math.min(1, y / Math.max(height, 0.05)));
+      let shape = 0;
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.06, 0, 0.92, 0.055));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.1, -0.64, 0.28, 0.044));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.1, 0.64, 0.28, 0.044));
+
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.36, -0.72, 0.58, 0.042));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.36, 0.72, 0.58, 0.042));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, -0.34, 0.47, -0.5, 0.68, 0.032));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0.34, 0.47, 0.5, 0.68, 0.032));
+
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.58, -0.48, 0.76, 0.034));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.58, 0.48, 0.76, 0.034));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.76, -0.28, 0.9, 0.028));
+      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.76, 0.28, 0.9, 0.028));
+
+      return shape * smoothstep(0.02, 0.07, yn) * (1 - smoothstep(0.95, 1, yn));
+    }
+
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    function lineSegmentAmount(px, py, ax, ay, bx, by, width) {
+      const pax = px - ax;
+      const pay = py - ay;
+      const bax = bx - ax;
+      const bay = by - ay;
+      const h = Math.max(0, Math.min(1, (pax * bax + pay * bay) / (bax * bax + bay * bay)));
+      const dx = pax - bax * h;
+      const dy = pay - bay * h;
+      return 1 - smoothstep(width, width + 0.014, Math.hypot(dx, dy));
+    }
+
+    function crownedCutoutTubeMesh(radius = 0.72, height = 1.24, width = 0.24, segments = 288, stacks = 128) {
+      const vertices = [];
+      const indices = [];
+      const index = [];
+      for (let yStep = 0; yStep <= stacks; yStep++) {
+        const row = [];
+        const y = (yStep / stacks) * height;
+        for (let aStep = 0; aStep <= segments; aStep++) {
+          const a = (aStep / segments) * Math.PI * 2;
+          const x = Math.cos(a) * radius;
+          const z = Math.sin(a) * radius;
+          row.push(vertices.length / 8);
+          vertices.push(x, y, z, Math.cos(a), 0, Math.sin(a), aStep / segments, yStep / stacks);
+        }
+        index.push(row);
+      }
+      for (let yStep = 0; yStep < stacks; yStep++) {
+        for (let aStep = 0; aStep < segments; aStep++) {
+          const a = ((aStep + 0.5) / segments) * Math.PI * 2;
+          const y = ((yStep + 0.5) / stacks) * height;
+          if (cutoutAmount(a, y, height, width) > 0.36) continue;
+          const a0 = index[yStep][aStep];
+          const a1 = index[yStep][aStep + 1];
+          const b0 = index[yStep + 1][aStep];
+          const b1 = index[yStep + 1][aStep + 1];
+          indices.push(a0, a1, b1, a0, b1, b0);
+        }
+      }
+      return createMesh(vertices, indices);
+    }
+
+    function annulusMesh(inner = 0.66, outer = 0.76, segments = 144) {
+      const vertices = [];
+      const indices = [];
+      for (let i = 0; i <= segments; i++) {
+        const a = (i / segments) * Math.PI * 2;
+        const nx = Math.cos(a);
+        const nz = Math.sin(a);
+        vertices.push(
+          nx * inner, 0, nz * inner, 0, 1, 0, 0, i / segments,
+          nx * outer, 0, nz * outer, 0, 1, 0, 1, i / segments
+        );
+      }
+      for (let i = 0; i < segments; i++) {
+        const a = i * 2;
+        indices.push(a, a + 1, a + 3, a, a + 3, a + 2);
+      }
+      return createMesh(vertices, indices);
+    }
+
+    function sphereMesh(radius = 1, stacks = 20, slices = 36) {
+      const vertices = [];
+      const indices = [];
+      for (let y = 0; y <= stacks; y++) {
+        const v = y / stacks;
+        const phi = v * Math.PI;
+        for (let x = 0; x <= slices; x++) {
+          const u = x / slices;
+          const theta = u * Math.PI * 2;
+          const sx = Math.sin(phi) * Math.cos(theta);
+          const sy = Math.cos(phi);
+          const sz = Math.sin(phi) * Math.sin(theta);
+          vertices.push(sx * radius, sy * radius, sz * radius, sx, sy, sz, u, v);
+        }
+      }
+      for (let y = 0; y < stacks; y++) {
+        for (let x = 0; x < slices; x++) {
+          const a = y * (slices + 1) + x;
+          const b = a + slices + 1;
+          indices.push(a, b, a + 1, b, b + 1, a + 1);
+        }
+      }
+      return createMesh(vertices, indices);
+    }
+
+    function roundedSoleMesh() {
+      const vertices = [];
+      const indices = [];
+      const outline = [];
+      for (let i = 0; i < 96; i++) {
+        const a = (i / 96) * Math.PI * 2;
+        const frontBias = Math.max(0, Math.sin(a));
+        const heelBias = Math.max(0, -Math.sin(a));
+        const width = 0.46 + frontBias * 0.24 - heelBias * 0.08;
+        const length = 1.08 + frontBias * 0.36;
+        outline.push([Math.cos(a) * width, Math.sin(a) * length + 0.12]);
+      }
+      for (let layer = 0; layer < 2; layer++) {
+        const y = layer === 0 ? -0.06 : 0.06;
+        for (const p of outline) {
+          vertices.push(p[0], y, p[1], 0, layer === 0 ? -1 : 1, 0, (p[0] + 0.8) / 1.6, (p[1] + 1.2) / 2.4);
+        }
+      }
+      const centerTop = vertices.length / 8;
+      vertices.push(0, 0.06, 0.05, 0, 1, 0, 0.5, 0.5);
+      const centerBottom = vertices.length / 8;
+      vertices.push(0, -0.06, 0.05, 0, -1, 0, 0.5, 0.5);
+      const n = outline.length;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        indices.push(i, j, i + n, j, j + n, i + n);
+        indices.push(centerTop, i + n, j + n);
+        indices.push(centerBottom, j, i);
+      }
+      return createMesh(vertices, indices);
+    }
+
+    function angleDelta(a, b) {
+      let d = a - b;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      return d;
+    }
+
+    function tubeRadius() {
+      return state.diameter * 0.5;
+    }
+
+    function rebuildTubeMeshes() {
+      const radius = tubeRadius();
+      meshes.tube = crownedCutoutTubeMesh(radius, state.height, state.slit);
+      meshes.rim = annulusMesh(Math.max(0.02, radius - 0.035), radius + 0.035);
+    }
+
+    const meshes = {
+      floor: planeMesh(9),
+      tube: null,
+      rim: null,
+      led: sphereMesh(0.18, 18, 32),
+      ray: planeMesh(1),
+      sole: roundedSoleMesh()
+    };
+    rebuildTubeMeshes();
+
+    function draw(mesh, model, material) {
+      bindMesh(mesh);
+      gl.uniformMatrix4fv(loc.model, false, new Float32Array(model));
+      gl.uniform4fv(loc.color, material.color);
+      gl.uniform1f(loc.emissive, material.emissive || 0);
+      gl.uniform1f(loc.opacity, material.opacity ?? 1);
+      gl.uniform1i(loc.materialKind, material.kind || 0);
+      gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+    }
+
+    function modelMatrix(parts) {
+      return parts.reduce((m, part) => Mat4.multiply(m, part), Mat4.identity());
+    }
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.floor(rect.width * dpr));
+      const height = Math.max(1, Math.floor(rect.height * dpr));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      gl.viewport(0, 0, width, height);
+    }
+
+    function render(time) {
+      resize();
+      const t = time * 0.001;
+      const floorY = 0;
+      const radius = tubeRadius();
+      const lightY = Math.min(state.height - 0.14, Math.max(0.16, state.floor));
+      const lightPos = [0, lightY, 0];
+      const cx = Math.cos(state.pitch) * Math.sin(state.yaw) * state.distance;
+      const cy = Math.sin(state.pitch) * state.distance - 1.15;
+      const cz = Math.cos(state.pitch) * Math.cos(state.yaw) * state.distance;
+      const cameraPos = [cx, cy, cz];
+      const projection = Mat4.perspective(47 * Math.PI / 180, canvas.width / canvas.height, 0.05, 80);
+      const view = Mat4.lookAt(cameraPos, [0, 0.62, 0], [0, 1, 0]);
+      const viewProj = Mat4.multiply(view, projection);
+
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.clearColor(0.018, 0.032, 0.044, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(program);
+      gl.uniformMatrix4fv(loc.viewProj, false, new Float32Array(viewProj));
+      gl.uniform3fv(loc.lightPos, new Float32Array(lightPos));
+      gl.uniform3fv(loc.cameraPos, new Float32Array(cameraPos));
+      gl.uniform1f(loc.slitWidth, state.slit);
+      gl.uniform1f(loc.flakeScale, state.flake);
+      gl.uniform1f(loc.tubeHeight, state.height);
+      gl.uniform1f(loc.tubeRadius, radius);
+      gl.uniform1f(loc.intensity, state.intensity * (0.92 + Math.sin(t * 2.2) * 0.035));
+      gl.uniform1f(loc.diagram, state.diagram ? 1 : 0);
+
+      draw(meshes.floor, Mat4.translate(0, floorY, 0), {
+        color: [0.12, 0.14, 0.15, 1],
+        kind: 2,
+        opacity: 1
+      });
+
+      draw(meshes.tube, Mat4.identity(), {
+        color: [0.72, 0.74, 0.68, 0.86],
+        opacity: state.diagram ? 0.68 : 0.98,
+        kind: 1
+      });
+
+      draw(meshes.rim, Mat4.translate(0, 0.004, 0), {
+        color: [0.82, 0.84, 0.78, 0.92],
+        opacity: 0.92,
+        kind: 1
+      });
+
+      draw(meshes.rim, Mat4.translate(0, state.height, 0), {
+        color: [0.9, 0.92, 0.86, 0.96],
+        opacity: 0.96,
+        kind: 1
+      });
+
+      draw(meshes.led, modelMatrix([Mat4.translate(...lightPos), Mat4.scale(1.05, 1.05, 1.05)]), {
+        color: [0.78, 0.96, 1, 0.95],
+        opacity: 0.95,
+        kind: 4,
+        emissive: 1.4 * state.intensity
+      });
+
+      if (state.diagram) {
+        const rayCount = 6;
+        for (let i = 0; i < rayCount; i++) {
+          const angle = i * Math.PI * 2 / rayCount + Math.PI / 2 + Math.sin(t * 0.5 + i) * 0.01;
+          const length = Math.max(1.2, state.flake * 1.04);
+          const midRadius = (radius + length) * 0.5;
+          const rayModel = modelMatrix([
+            Mat4.translate(Math.cos(angle) * midRadius, lightY * 0.44, Math.sin(angle) * midRadius),
+            Mat4.rotateY(angle),
+            Mat4.rotateX(Math.PI / 2),
+            Mat4.scale(0.08 + state.slit * 0.28, length, 1)
+          ]);
+          draw(meshes.ray, rayModel, {
+            color: [0.58, 0.9, 1, 0.28],
+            opacity: 0.42,
+            kind: 3,
+            emissive: 0.95
+          });
+        }
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    function syncValues() {
+      state.floor = Math.min(state.floor, state.height - 0.14);
+      document.getElementById("floor").max = (state.height - 0.14).toFixed(2);
+      document.getElementById("floor").value = state.floor.toFixed(2);
+      for (const key of ["intensity", "slit", "height", "diameter", "flake", "floor"]) {
+        document.querySelector(`[data-value="${key}"]`).textContent = state[key].toFixed(2);
+      }
+      const angle = 12 + state.slit * 58;
+      document.querySelector('[data-readout="angle"]').textContent = `${angle.toFixed(1)} deg`;
+      document.querySelector('[data-readout="scale"]').textContent = `${state.flake.toFixed(2)} x`;
+      document.querySelector('[data-readout="opacity"]').textContent = state.floor.toFixed(2);
+    }
+
+    for (const input of document.querySelectorAll("input[type='range']")) {
+      input.addEventListener("input", () => {
+        state[input.id] = Number(input.value);
+        if (input.id === "slit" || input.id === "height" || input.id === "diameter") {
+          rebuildTubeMeshes();
+        }
+        syncValues();
+      });
+    }
+
+    document.getElementById("modeReal").addEventListener("click", () => {
+      state.diagram = false;
+      document.getElementById("modeReal").classList.add("active");
+      document.getElementById("modeDiagram").classList.remove("active");
+    });
+
+    document.getElementById("modeDiagram").addEventListener("click", () => {
+      state.diagram = true;
+      document.getElementById("modeDiagram").classList.add("active");
+      document.getElementById("modeReal").classList.remove("active");
+    });
+
+    canvas.addEventListener("pointerdown", (event) => {
+      state.dragging = true;
+      state.lastX = event.clientX;
+      state.lastY = event.clientY;
+      canvas.setPointerCapture(event.pointerId);
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      if (!state.dragging) return;
+      const dx = event.clientX - state.lastX;
+      const dy = event.clientY - state.lastY;
+      state.lastX = event.clientX;
+      state.lastY = event.clientY;
+      state.yaw -= dx * 0.006;
+      state.pitch = Math.max(0.24, Math.min(1.32, state.pitch + dy * 0.005));
+    });
+
+    canvas.addEventListener("pointerup", (event) => {
+      state.dragging = false;
+      canvas.releasePointerCapture(event.pointerId);
+    });
+
+    canvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      state.distance = Math.max(4.4, Math.min(10.5, state.distance + event.deltaY * 0.004));
+    }, { passive: false });
+
+    syncValues();
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
