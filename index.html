@@ -156,6 +156,10 @@
       line-height: 1.45;
     }
 
+    .views { display: flex; gap: 8px; margin-bottom: 14px; }
+    .views button { flex: 1; padding: 9px; color: var(--text); background: #152936; border: 1px solid var(--panel-border); border-radius: 6px; cursor: pointer; }
+    #pattern { display: block; width: 100%; height: 170px; margin-top: 12px; background: #15212b; }
+
     @media (max-width: 860px) {
       body {
         grid-template-columns: 1fr;
@@ -192,49 +196,53 @@
   <canvas id="stage" aria-label="雪の結晶投影機構の3Dプレビュー"></canvas>
   <aside class="controls">
     <div class="brand">
-      <h1>Snowflake Light<br>Mechanism</h1>
+      <h1>Snowflake Light<br>逆投影カット</h1>
       <div class="badge" aria-hidden="true">*</div>
     </div>
 
     <section class="panel">
-      <h2>Emitter</h2>
+      <div class="views"><button id="view-angle" type="button">斜めから</button><button id="view-top" type="button">真上から</button></div>
+      <h2>円筒・光源</h2>
       <label>
-        <span class="value-row"><span>LED intensity</span><span data-value="intensity">0.59</span></span>
+        <span class="value-row"><span>明るさ</span><span data-value="intensity">0.59</span></span>
         <input id="intensity" type="range" min="0.3" max="2.2" step="0.01" value="0.59">
       </label>
       <label>
-        <span class="value-row"><span>Cut width</span><span data-value="slit">0.53</span></span>
+        <span class="value-row"><span>結晶の線の太さ</span><span data-value="slit">0.53</span></span>
         <input id="slit" type="range" min="0.14" max="0.62" step="0.01" value="0.53">
       </label>
       <label>
-        <span class="value-row"><span>Tube height</span><span data-value="height">0.91</span></span>
+        <span class="value-row"><span>円筒の高さ</span><span data-value="height">0.91</span></span>
         <input id="height" type="range" min="0.05" max="1.75" step="0.01" value="0.91">
       </label>
       <label>
-        <span class="value-row"><span>Tube diameter</span><span data-value="diameter">0.95</span></span>
+        <span class="value-row"><span>円筒の直径</span><span data-value="diameter">0.95</span></span>
         <input id="diameter" type="range" min="0.9" max="2.1" step="0.01" value="0.95">
       </label>
     </section>
 
     <section class="panel">
-      <h2>Projection</h2>
+      <h2>床への投影</h2>
       <label>
-        <span class="value-row"><span>Snowflake size</span><span data-value="flake">2.62</span></span>
+        <span class="value-row"><span>結晶の外周半径</span><span data-value="flake">2.62</span></span>
         <input id="flake" type="range" min="1.1" max="3.6" step="0.01" value="2.62">
       </label>
       <label>
-        <span class="value-row"><span>Light height</span><span data-value="floor">0.77</span></span>
+        <span class="value-row"><span>光源の高さ</span><span data-value="floor">0.77</span></span>
         <input id="floor" type="range" min="0.01" max="1.3" step="0.01" value="0.77">
       </label>
     </section>
 
     <section class="panel">
-      <h2>Readout</h2>
+      <h2>切り込みの設計</h2>
       <div class="readout">
-        <span>Aperture angle</span><strong data-readout="angle">42.7 deg</strong>
-        <span>Projection scale</span><strong data-readout="scale">2.62 x</strong>
-        <span>Source height</span><strong data-readout="opacity">0.77</strong>
+        <span>開口の上限高さ</span><strong data-readout="angle">0.630</strong>
+        <span>結晶の外径</span><strong data-readout="scale">5.24</strong>
+        <span>光源の高さ</span><strong data-readout="opacity">0.77</strong>
       </div>
+      <canvas id="pattern" width="520" height="340" aria-label="円筒側面の60度分の展開図。青い部分が開口。"></canvas>
+      <p class="hint">側面の展開図：青い部分を開口。これを60°ごとに6回繰り返します。破線は光源の高さです。</p>
+      <p class="hint">寸法はシミュレーター内の共通単位。理想点光源・厚みのない遮光面での形状確認です。実際のLEDの配光・発光面の広がり・壁厚・靴の遮蔽は未反映です。</p>
     </section>
   </aside>
 
@@ -255,8 +263,8 @@
       flake: 2.62,
       floor: 0.77,
       yaw: -0.36,
-      pitch: 0.5,
-      distance: 5.8,
+      pitch: 1.12,
+      distance: 8.4,
       dragging: false,
       lastX: 0,
       lastY: 0
@@ -269,6 +277,16 @@
     function lightHeightLimit() {
       return Math.max(LIGHT_HEIGHT_MIN, state.height - Math.max(0.01, state.height * 0.08));
     }
+
+    // One arm in floor coordinates, normalized by the target outer radius.
+    // The same segments generate both the GLSL aperture and the flat pattern.
+    const flakeSegments = [[0, 0, 0.965, 0, 1]];
+    for (const [root, length, spread] of [[0.32, 0.21, 0.19], [0.55, 0.19, 0.17], [0.76, 0.13, 0.12]]) {
+      for (const sign of [-1, 1]) flakeSegments.push([root, 0, root + length, spread * sign, 0.78]);
+    }
+    const glslSegments = flakeSegments.map(([ax, ay, bx, by, width]) =>
+      `shape = max(shape, lineSegment(p, vec2(${ax.toFixed(6)}, ${ay.toFixed(6)}), vec2(${bx.toFixed(6)}, ${by.toFixed(6)}), slitWidth * 0.065 * ${width.toFixed(6)}));`
+    ).join('\n');
 
     const vertexSource = `
       attribute vec3 position;
@@ -309,30 +327,18 @@
         vec2 pa = p - a;
         vec2 ba = b - a;
         float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-        return 1.0 - smoothstep(width, width + 0.014, length(pa - ba * h));
+        return 1.0 - smoothstep(width, width + 0.003, length(pa - ba * h));
       }
 
       float apertureShape(float localAngle, float localY) {
-        float x = localAngle / max(slitWidth, 0.02);
-        float y = clamp(localY / max(tubeHeight, 0.05), 0.0, 1.0);
-        vec2 p = vec2(x, y);
+        // A wall point (R, y) projects to radius rho = R * L / (L - y).
+        // Reject horizontal/upward rays and keep a solid lower rim.
+        if (localY <= 0.012 || localY >= lightPos.y || localY >= tubeHeight - 0.012) return 0.0;
+        float rho = tubeRadius * lightPos.y / (lightPos.y - localY);
+        if (rho > flakeScale) return 0.0;
+        vec2 p = rho / flakeScale * vec2(cos(localAngle), sin(localAngle));
         float shape = 0.0;
-
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.06), vec2(0.0, 0.92), 0.055));
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.1), vec2(-0.64, 0.28), 0.044));
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.1), vec2(0.64, 0.28), 0.044));
-
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.36), vec2(-0.72, 0.58), 0.042));
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.36), vec2(0.72, 0.58), 0.042));
-        shape = max(shape, lineSegment(p, vec2(-0.34, 0.47), vec2(-0.5, 0.68), 0.032));
-        shape = max(shape, lineSegment(p, vec2(0.34, 0.47), vec2(0.5, 0.68), 0.032));
-
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.58), vec2(-0.48, 0.76), 0.034));
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.58), vec2(0.48, 0.76), 0.034));
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.76), vec2(-0.28, 0.9), 0.028));
-        shape = max(shape, lineSegment(p, vec2(0.0, 0.76), vec2(0.28, 0.9), 0.028));
-
-        shape *= smoothstep(0.02, 0.07, y) * (1.0 - smoothstep(0.95, 1.0, y));
+        ${glslSegments}
         return clamp(shape, 0.0, 1.0);
       }
 
@@ -353,10 +359,9 @@
         float t = tubeRadius / radial;
         vec3 hit = lightPos + ray * t;
         float angle = atan(hit.z, hit.x);
-        float opening = apertureMask(angle, hit.y);
-        float distanceFade = exp(-dot(floorPoint.xz, floorPoint.xz) / max(flakeScale * flakeScale * 0.56, 0.2));
-        float edgeFocus = smoothstep(0.02, 0.18, radial - tubeRadius);
-        return opening * distanceFade * edgeFocus;
+        float opening = step(0.5, apertureMask(angle, hit.y));
+        float distanceFade = 1.0 / (1.0 + 0.24 * radial * radial);
+        return opening * distanceFade;
       }
 
       void main() {
@@ -371,18 +376,16 @@
 
         if (materialKind == 1) {
           float wallGlow = apertureMask(atan(vWorld.z, vWorld.x), vWorld.y);
+          if (wallGlow >= 0.5) discard;
           finalColor = mix(finalColor, vec3(0.76, 0.78, 0.72), 0.62);
-          finalColor += vec3(0.55, 0.84, 1.0) * wallGlow * intensity * 0.42;
           alpha = opacity;
         }
 
         if (materialKind == 2) {
           float apertureLight = projectedAperture(vWorld);
-          float halo = exp(-dot(vWorld.xz, vWorld.xz) / max(flakeScale * flakeScale * 0.72, 0.2));
-          float caustic = 0.5 + 0.5 * cos(18.0 * atan(vWorld.z, vWorld.x));
           vec3 floorColor = mix(vec3(0.16, 0.18, 0.19), vec3(0.21, 0.23, 0.24), step(0.03, mod(vWorld.x + 8.0, 1.25)) * 0.12);
           floorColor *= 0.72 + 0.18 * step(0.03, mod(vWorld.z + 8.0, 1.25));
-          vec3 glow = vec3(0.72, 0.92, 1.0) * (apertureLight * 2.8 + halo * caustic * 0.06) * intensity;
+          vec3 glow = vec3(0.035, 0.48, 1.0) * apertureLight * 3.5 * intensity;
           finalColor = floorColor + glow;
           alpha = 1.0;
         }
@@ -521,8 +524,10 @@
       gl.vertexAttribPointer(loc.position, 3, gl.FLOAT, false, stride, 0);
       gl.enableVertexAttribArray(loc.normal);
       gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, stride, 3 * 4);
-      gl.enableVertexAttribArray(loc.uv);
-      gl.vertexAttribPointer(loc.uv, 2, gl.FLOAT, false, stride, 6 * 4);
+      if (loc.uv >= 0) {
+        gl.enableVertexAttribArray(loc.uv);
+        gl.vertexAttribPointer(loc.uv, 2, gl.FLOAT, false, stride, 6 * 4);
+      }
     }
 
     function planeMesh(size = 1) {
@@ -566,28 +571,21 @@
     }
 
     function cutoutAmount(angle, y, height, width) {
+      const lightY = state.floor;
+      if (y <= 0.012 || y >= lightY || y >= height - 0.012) return 0;
+      const rho = tubeRadius() * lightY / (lightY - y);
+      if (rho > state.flake) return 0;
       const sector = Math.PI * 2 / 6;
       const offset = Math.PI / 2;
       const nearest = Math.round((angle - offset) / sector) * sector + offset;
       const localAngle = angleDelta(angle, nearest);
-      const x = localAngle / Math.max(width, 0.02);
-      const yn = Math.max(0, Math.min(1, y / Math.max(height, 0.05)));
+      const x = rho / state.flake * Math.cos(localAngle);
+      const yn = rho / state.flake * Math.sin(localAngle);
       let shape = 0;
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.06, 0, 0.92, 0.055));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.1, -0.64, 0.28, 0.044));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.1, 0.64, 0.28, 0.044));
-
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.36, -0.72, 0.58, 0.042));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.36, 0.72, 0.58, 0.042));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, -0.34, 0.47, -0.5, 0.68, 0.032));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0.34, 0.47, 0.5, 0.68, 0.032));
-
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.58, -0.48, 0.76, 0.034));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.58, 0.48, 0.76, 0.034));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.76, -0.28, 0.9, 0.028));
-      shape = Math.max(shape, lineSegmentAmount(x, yn, 0, 0.76, 0.28, 0.9, 0.028));
-
-      return shape * smoothstep(0.02, 0.07, yn) * (1 - smoothstep(0.95, 1, yn));
+      for (const [ax, ay, bx, by, factor] of flakeSegments) {
+        shape = Math.max(shape, lineSegmentAmount(x, yn, ax, ay, bx, by, width * 0.065 * factor));
+      }
+      return shape;
     }
 
     function smoothstep(edge0, edge1, x) {
@@ -603,38 +601,7 @@
       const h = Math.max(0, Math.min(1, (pax * bax + pay * bay) / (bax * bax + bay * bay)));
       const dx = pax - bax * h;
       const dy = pay - bay * h;
-      return 1 - smoothstep(width, width + 0.014, Math.hypot(dx, dy));
-    }
-
-    function crownedCutoutTubeMesh(radius = 0.72, height = 1.24, width = 0.24, segments = 288, stacks = 128) {
-      const vertices = [];
-      const indices = [];
-      const index = [];
-      for (let yStep = 0; yStep <= stacks; yStep++) {
-        const row = [];
-        const y = (yStep / stacks) * height;
-        for (let aStep = 0; aStep <= segments; aStep++) {
-          const a = (aStep / segments) * Math.PI * 2;
-          const x = Math.cos(a) * radius;
-          const z = Math.sin(a) * radius;
-          row.push(vertices.length / 8);
-          vertices.push(x, y, z, Math.cos(a), 0, Math.sin(a), aStep / segments, yStep / stacks);
-        }
-        index.push(row);
-      }
-      for (let yStep = 0; yStep < stacks; yStep++) {
-        for (let aStep = 0; aStep < segments; aStep++) {
-          const a = ((aStep + 0.5) / segments) * Math.PI * 2;
-          const y = ((yStep + 0.5) / stacks) * height;
-          if (cutoutAmount(a, y, height, width) > 0.36) continue;
-          const a0 = index[yStep][aStep];
-          const a1 = index[yStep][aStep + 1];
-          const b0 = index[yStep + 1][aStep];
-          const b1 = index[yStep + 1][aStep + 1];
-          indices.push(a0, a1, b1, a0, b1, b0);
-        }
-      }
-      return createMesh(vertices, indices);
+      return 1 - smoothstep(width, width + 0.003, Math.hypot(dx, dy));
     }
 
     function annulusMesh(inner = 0.66, outer = 0.76, segments = 144) {
@@ -726,7 +693,11 @@
 
     function rebuildTubeMeshes() {
       const radius = tubeRadius();
-      meshes.tube = crownedCutoutTubeMesh(radius, state.height, state.slit);
+      for (const mesh of [meshes.tube, meshes.rim]) {
+        if (mesh) { gl.deleteBuffer(mesh.vao); gl.deleteBuffer(mesh.ibo); }
+      }
+      // Continuous shader cutouts avoid the old grid's stair-step openings.
+      meshes.tube = cylinderMesh(radius, state.height, 720);
       meshes.rim = annulusMesh(Math.max(0.02, radius - 0.035), radius + 0.035);
     }
 
@@ -773,11 +744,11 @@
       const lightY = Math.min(lightHeightLimit(), Math.max(LIGHT_HEIGHT_MIN, state.floor));
       const lightPos = [0, lightY, 0];
       const cx = Math.cos(state.pitch) * Math.sin(state.yaw) * state.distance;
-      const cy = Math.sin(state.pitch) * state.distance - 1.15;
+      const cy = Math.sin(state.pitch) * state.distance;
       const cz = Math.cos(state.pitch) * Math.cos(state.yaw) * state.distance;
       const cameraPos = [cx, cy, cz];
       const projection = Mat4.perspective(47 * Math.PI / 180, canvas.width / canvas.height, 0.05, 80);
-      const view = Mat4.lookAt(cameraPos, [0, 0.62, 0], [0, 1, 0]);
+      const view = Mat4.lookAt(cameraPos, [0, 0, 0], [0, 1, 0]);
       const viewProj = Mat4.multiply(view, projection);
 
       gl.enable(gl.DEPTH_TEST);
@@ -801,22 +772,22 @@
         opacity: 1
       });
 
-      draw(meshes.tube, Mat4.identity(), {
+      draw(meshes.tube, Mat4.translate(0, state.height * 0.5, 0), {
         color: [0.72, 0.74, 0.68, 0.86],
-        opacity: 0.98,
+        opacity: 1,
         kind: 1
       });
 
       draw(meshes.rim, Mat4.translate(0, 0.004, 0), {
         color: [0.82, 0.84, 0.78, 0.92],
         opacity: 0.92,
-        kind: 1
+        kind: 0
       });
 
       draw(meshes.rim, Mat4.translate(0, state.height, 0), {
         color: [0.9, 0.92, 0.86, 0.96],
         opacity: 0.96,
-        kind: 1
+        kind: 0
       });
 
       draw(meshes.led, Mat4.translate(...lightPos), {
@@ -836,19 +807,54 @@
       for (const key of ["intensity", "slit", "height", "diameter", "flake", "floor"]) {
         document.querySelector(`[data-value="${key}"]`).textContent = state[key].toFixed(2);
       }
-      const angle = 12 + state.slit * 58;
-      document.querySelector('[data-readout="angle"]').textContent = `${angle.toFixed(1)} deg`;
-      document.querySelector('[data-readout="scale"]').textContent = `${state.flake.toFixed(2)} x`;
+      const maxY = state.floor * (1 - tubeRadius() / state.flake);
+      document.querySelector('[data-readout="angle"]').textContent = maxY.toFixed(3);
+      document.querySelector('[data-readout="scale"]').textContent = (state.flake * 2).toFixed(2);
       document.querySelector('[data-readout="opacity"]').textContent = state.floor.toFixed(2);
+      drawPattern();
     }
+
+    function drawPattern() {
+      const pattern = document.getElementById('pattern');
+      const ctx = pattern.getContext('2d');
+      const image = ctx.createImageData(pattern.width, pattern.height);
+      // Equal horizontal and vertical physical scale; display one 60-degree sector.
+      const sectorWidth = tubeRadius() * Math.PI / 3;
+      const scale = Math.min((pattern.width - 24) / sectorWidth, (pattern.height - 24) / state.height);
+      const left = (pattern.width - sectorWidth * scale) / 2;
+      const top = (pattern.height - state.height * scale) / 2;
+      for (let py = 0; py < pattern.height; py++) {
+        const y = state.height - (py - top) / scale;
+        for (let px = 0; px < pattern.width; px++) {
+          const u = (px - left) / scale;
+          const inside = u >= 0 && u <= sectorWidth && y >= 0 && y <= state.height;
+          const open = inside && cutoutAmount(Math.PI / 2 + u / tubeRadius() - Math.PI / 6, y, state.height, state.slit) >= 0.5;
+          const color = open ? [101, 215, 255, 255] : inside ? [87, 104, 113, 255] : [0, 0, 0, 0];
+          image.data.set(color, (py * pattern.width + px) * 4);
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+      ctx.strokeStyle = '#eef8ff';
+      ctx.setLineDash([7, 6]);
+      const ly = top + (state.height - state.floor) * scale;
+      ctx.beginPath(); ctx.moveTo(left, ly); ctx.lineTo(left + sectorWidth * scale, ly); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    document.getElementById('view-angle').addEventListener('click', () => {
+      state.pitch = 1.12; state.yaw = -0.36; state.distance = 8.4;
+    });
+    document.getElementById('view-top').addEventListener('click', () => {
+      state.pitch = Math.PI / 2 - 0.001; state.yaw = 0; state.distance = 8.4;
+    });
 
     for (const input of document.querySelectorAll("input[type='range']")) {
       input.addEventListener("input", () => {
         state[input.id] = Number(input.value);
-        if (input.id === "slit" || input.id === "height" || input.id === "diameter") {
+        syncValues();
+        if (input.id === "height" || input.id === "diameter") {
           rebuildTubeMeshes();
         }
-        syncValues();
       });
     }
 
